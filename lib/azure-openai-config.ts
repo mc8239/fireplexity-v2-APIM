@@ -51,18 +51,26 @@ export function createAzureOpenAIClient() {
   
   // If APIM endpoint is configured, use it as a proxy
   if (config.apimEndpoint && config.apimSubscriptionKey) {
-    // For APIM, set baseURL to the EXACT path minus /chat/completions
-    // So the AI SDK will construct: baseURL + /chat/completions
-    return createOpenAI({
-      baseURL: `${config.apimEndpoint.replace(/\/$/, '')}/openai/deployments/${config.deploymentName}`,
+    // CRITICAL FIX: Use createAzure with useDeploymentBasedUrls: true
+    // This forces the legacy deployment format: /openai/deployments/{deployment}/chat/completions
+    // instead of the new v1 format: /openai/v1/responses
+    
+    console.log('🔧 APIM Configuration:')
+    console.log('  APIM Endpoint:', config.apimEndpoint)
+    console.log('  Deployment Name:', config.deploymentName)
+    console.log('  Expected final URL:', `${config.apimEndpoint}/openai/deployments/${config.deploymentName}/chat/completions`)
+    
+    return createAzure({
+      baseURL: config.apimEndpoint.replace(/\/$/, ''),
       apiKey: config.apiKey,
+      apiVersion: config.apiVersion,
+      useDeploymentBasedUrls: true, // CRITICAL: Forces legacy deployment-based URLs
       headers: {
-        'Ocp-Apim-Subscription-Key': config.apimSubscriptionKey,
-        'api-version': config.apiVersion
+        'Ocp-Apim-Subscription-Key': config.apimSubscriptionKey
       }
     })
   } else {
-    // Direct Azure OpenAI connection
+    // Direct Azure OpenAI connection - use the native Azure provider
     return createAzure({
       resourceName: extractResourceName(config.endpoint),
       apiKey: config.apiKey,
@@ -88,12 +96,8 @@ function extractResourceName(endpoint: string): string {
 export function getAzureOpenAIModel(): string {
   const config = getAzureOpenAIConfig()
   
-  // For APIM, use simple model name since deployment is in baseURL
-  if (config.apimEndpoint) {
-    return 'gpt-4o'
-  }
-  
-  // For direct Azure OpenAI, use the deployment name
+  // For APIM with deployment-based URLs, use the deployment name
+  // The createAzure with useDeploymentBasedUrls will handle the URL construction
   return config.deploymentName
 }
 
