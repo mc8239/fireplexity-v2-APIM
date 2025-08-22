@@ -49,15 +49,18 @@ export function getAzureOpenAIConfig(): AzureOpenAIConfig {
 export function createAzureOpenAIClient() {
   const config = getAzureOpenAIConfig()
   
-  // If APIM endpoint is configured, use it as a proxy
+  // If APIM endpoint is configured, use it as a proxy but keep Azure format
   if (config.apimEndpoint && config.apimSubscriptionKey) {
-    // Use APIM gateway endpoint
-    return createOpenAI({
-      baseURL: `${config.apimEndpoint.replace(/\/$/, '')}/openai`,
+    // For APIM, use createAzure but override the baseURL to point to APIM
+    // This ensures the request format stays as Azure OpenAI:
+    // /openai/deployments/{deployment-name}/chat/completions?api-version={api-version}
+    return createAzure({
+      resourceName: 'apim-proxy', // Dummy value since we override baseURL
       apiKey: config.apiKey,
+      apiVersion: config.apiVersion,
+      baseURL: config.apimEndpoint.replace(/\/$/, ''),
       headers: {
-        'Ocp-Apim-Subscription-Key': config.apimSubscriptionKey,
-        'api-version': config.apiVersion
+        'Ocp-Apim-Subscription-Key': config.apimSubscriptionKey
       }
     })
   } else {
@@ -87,12 +90,8 @@ function extractResourceName(endpoint: string): string {
 export function getAzureOpenAIModel(): string {
   const config = getAzureOpenAIConfig()
   
-  // For APIM scenarios, we need to use the deployment name directly
-  if (config.apimEndpoint) {
-    return config.deploymentName
-  }
-  
-  // For direct Azure OpenAI, use the deployment name
+  // For both APIM and direct Azure OpenAI, use the deployment name
+  // since we're using createAzure() for both scenarios
   return config.deploymentName
 }
 
