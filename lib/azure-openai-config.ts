@@ -51,9 +51,8 @@ export function createAzureOpenAIClient() {
   
   // If APIM endpoint is configured, use it as a proxy
   if (config.apimEndpoint && config.apimSubscriptionKey) {
-    // CRITICAL FIX: Use createAzure with useDeploymentBasedUrls: true
-    // This forces the legacy deployment format: /openai/deployments/{deployment}/chat/completions
-    // instead of the new v1 format: /openai/v1/responses
+    // CRITICAL FIX: createAzure with baseURL doesn't include /openai prefix
+    // We need to add /openai to the baseURL for deployment-based URLs to work correctly
     
     console.log('🔧 APIM Configuration:')
     console.log('  APIM Endpoint:', config.apimEndpoint)
@@ -61,7 +60,7 @@ export function createAzureOpenAIClient() {
     console.log('  Expected final URL:', `${config.apimEndpoint}/openai/deployments/${config.deploymentName}/chat/completions`)
     
     return createAzure({
-      baseURL: config.apimEndpoint.replace(/\/$/, ''),
+      baseURL: `${config.apimEndpoint.replace(/\/$/, '')}/openai`,
       apiKey: config.apiKey,
       apiVersion: config.apiVersion,
       useDeploymentBasedUrls: true, // CRITICAL: Forces legacy deployment-based URLs
